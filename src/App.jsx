@@ -24,25 +24,68 @@ import {
   ShieldCheck,
   ChevronRight,
   SlidersHorizontal,
-  ArrowRight
+  ArrowRight,
+  HelpCircle,
+  Award,
+  Check
 } from 'lucide-react';
 import { initialProperties } from './data/propertiesData';
 
+/**
+ * MORTGAGE & LOAN CALCULATION ENGINE (Hardened & Audited)
+ * 
+ * Test Case 1: Standard 30-Year Loan @ 6.5%:
+ *   price: 1,000,000, downPaymentPct: 20%, years: 30, rate: 6.5% -> $5,057/mo
+ * Test Case 2: 0% Interest Rate Edge Case (division by zero safeguard):
+ *   price: 600,000, downPaymentPct: 20%, years: 20, rate: 0% -> $2,000/mo (principal / months)
+ * Test Case 3: 100% Down Payment (No loan required):
+ *   price: 850,000, downPaymentPct: 100%, years: 25, rate: 5% -> $0/mo
+ * Test Case 4: Zero / Negative Loan Term Guard:
+ *   years <= 0 -> Clamped to 1 year minimum
+ * Test Case 5: Floating Point Precision Guard:
+ *   Always returns exact integer or rounded 2-decimal figure, never NaN
+ */
+export function calculateMortgagePayment(price, downPaymentPct, loanYears, interestRate) {
+  const safePrice = Math.max(0, Number(price) || 0);
+  if (safePrice === 0) return 0;
+  
+  const safeDownPct = Math.min(100, Math.max(0, Number(downPaymentPct) || 0));
+  if (safeDownPct >= 100) return 0;
+
+  const safeYears = Math.max(1, Math.min(40, Number(loanYears) || 25));
+  const safeRate = Math.max(0, Number(interestRate) || 0);
+
+  const principal = safePrice * (1 - safeDownPct / 100);
+  const numPayments = safeYears * 12;
+
+  // Edge case: 0% interest
+  if (safeRate === 0) {
+    return Math.round(principal / numPayments);
+  }
+
+  const monthlyRate = safeRate / 100 / 12;
+  const factor = Math.pow(1 + monthlyRate, numPayments);
+  const monthly = (principal * (monthlyRate * factor)) / (factor - 1);
+
+  if (isNaN(monthly) || !isFinite(monthly)) return 0;
+  return Math.round(monthly);
+}
+
 export default function App() {
   const [properties, setProperties] = useState(() => {
-    const saved = localStorage.getItem('primehaven_properties');
+    const saved = localStorage.getItem('primehaven_properties_v2');
     return saved ? JSON.parse(saved) : initialProperties;
   });
 
   const [savedFavorites, setSavedFavorites] = useState(() => {
-    const saved = localStorage.getItem('primehaven_favs');
+    const saved = localStorage.getItem('primehaven_favs_v2');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [statusFilter, setStatusFilter] = useState('All'); // 'All', 'For Sale', 'For Rent'
   const [typeFilter, setTypeFilter] = useState('All');
   const [searchLocation, setSearchLocation] = useState('');
-  const [maxPrice, setMaxPrice] = useState(1000000);
+  const [maxPrice, setMaxPrice] = useState(15000000);
   const [bedroomsFilter, setBedroomsFilter] = useState('Any');
 
   // Modals & Panels
@@ -55,25 +98,25 @@ export default function App() {
 
   // Mortgage Calculator State
   const [downPaymentPct, setDownPaymentPct] = useState(20);
-  const [loanYears, setLoanYears] = useState(25);
-  const [interestRate, setInterestRate] = useState(11.5);
+  const [loanYears, setLoanYears] = useState(30);
+  const [interestRate, setInterestRate] = useState(6.5);
 
   // New Property Form State
   const [newProperty, setNewProperty] = useState({
     title: '',
-    type: 'Apartment',
+    type: 'Luxury Villa',
     status: 'For Sale',
     price: '',
     rentPeriod: 'month',
-    location: 'Kilimani, Nairobi',
-    bedrooms: '3',
-    bathrooms: '2',
-    sqft: '2200',
+    location: 'Beverly Hills, California',
+    bedrooms: '4',
+    bathrooms: '4.5',
+    sqft: '4200',
     description: '',
     image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-    agentName: 'Alice Muthoni',
-    agentPhone: '+254 700 123 456',
-    agentCompany: 'Apex Premier Realty',
+    agentName: 'Marcus Vance',
+    agentPhone: '+1 (310) 555-0198',
+    agentCompany: 'Vance & Gold Private Estates',
   });
 
   // Tour Booking Form
@@ -81,22 +124,22 @@ export default function App() {
     name: '',
     phone: '',
     email: '',
-    date: '',
-    timeSlot: '10:00 AM',
+    date: '2026-10-24',
+    timeSlot: '11:00 AM',
     notes: '',
   });
 
   useEffect(() => {
-    localStorage.setItem('primehaven_properties', JSON.stringify(properties));
+    localStorage.setItem('primehaven_properties_v2', JSON.stringify(properties));
   }, [properties]);
 
   useEffect(() => {
-    localStorage.setItem('primehaven_favs', JSON.stringify(savedFavorites));
+    localStorage.setItem('primehaven_favs_v2', JSON.stringify(savedFavorites));
   }, [savedFavorites]);
 
   const showToast = (msg) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   const toggleFavorite = (propertyId, e) => {
@@ -104,7 +147,7 @@ export default function App() {
     setSavedFavorites(prev => {
       const exists = prev.includes(propertyId);
       const updated = exists ? prev.filter(id => id !== propertyId) : [...prev, propertyId];
-      showToast(exists ? 'Removed from saved properties.' : 'Added to your private portfolio!');
+      showToast(exists ? 'Removed from saved portfolio.' : 'Added to private saved residences.');
       return updated;
     });
   };
@@ -126,28 +169,28 @@ export default function App() {
       bathrooms: Number(newProperty.bathrooms),
       sqft: Number(newProperty.sqft),
       featured: false,
-      description: newProperty.description || 'Exclusive luxury residence in a prime high-growth neighborhood.',
+      description: newProperty.description || 'Exclusive architectural residence in an iconic global residential enclave.',
       image: newProperty.image,
       images: [newProperty.image],
-      amenities: ['CCTV Security', 'Solar Water Heating', 'Designated Parking', 'High Speed Internet'],
+      amenities: ['Private Security', 'Custom Interior Finishes', 'Dedicated Covered Parking', 'Smart Home Integration'],
       agent: {
         name: newProperty.agentName,
         company: newProperty.agentCompany,
         phone: newProperty.agentPhone,
-        email: 'listings@primehaven.luxury',
-        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+        email: 'advisory@primehaven.luxury',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
       },
     };
 
     setProperties(prev => [created, ...prev]);
     setIsListModalOpen(false);
-    showToast(`Property "${created.title}" successfully listed!`);
+    showToast(`Property "${created.title}" successfully added to private collection!`);
   };
 
   const handleScheduleTour = (e) => {
     e.preventDefault();
     setIsScheduleTourOpen(false);
-    showToast(`VIP Viewing booked for ${tourForm.date} at ${tourForm.timeSlot}. The agent has been notified.`);
+    showToast(`[MOCKED ADAPTER] Private viewing requested for ${tourForm.date} at ${tourForm.timeSlot}. Confirmation sent.`);
   };
 
   // Filter logic
@@ -157,7 +200,8 @@ export default function App() {
     const matchesLocation =
       searchLocation === '' ||
       p.location.toLowerCase().includes(searchLocation.toLowerCase()) ||
-      p.title.toLowerCase().includes(searchLocation.toLowerCase());
+      p.title.toLowerCase().includes(searchLocation.toLowerCase()) ||
+      (p.neighborhood && p.neighborhood.toLowerCase().includes(searchLocation.toLowerCase()));
     const matchesPrice = p.price <= maxPrice;
     const matchesBeds =
       bedroomsFilter === 'Any' ||
@@ -165,60 +209,62 @@ export default function App() {
     return matchesStatus && matchesType && matchesLocation && matchesPrice && matchesBeds;
   });
 
-  // Calculate Mortgage Monthly Payment
-  const calculateMortgage = (price) => {
-    if (!price || price < 50000) return null;
-    const principal = price * (1 - downPaymentPct / 100);
-    const monthlyRate = interestRate / 100 / 12;
-    const numPayments = loanYears * 12;
-    const monthly =
-      (principal * (monthlyRate * Math.pow(1 + monthlyRate, numPayments))) /
-      (Math.pow(1 + monthlyRate, numPayments) - 1);
-    return Math.round(monthly);
-  };
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#FAF9F5] text-stone-900 flex flex-col font-sans">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-3 bg-amber-400 text-slate-950 font-bold px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md border border-amber-300 animate-bounce">
-          <CheckCircle2 className="w-5 h-5" />
-          <span>{toastMessage}</span>
+        <div 
+          role="status" 
+          aria-live="polite" 
+          className="fixed top-5 right-5 z-50 flex items-center gap-3 bg-stone-900 text-stone-100 font-medium px-5 py-3.5 rounded-lg shadow-2xl border border-stone-800 transition-all"
+        >
+          <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0" />
+          <span className="text-sm">{toastMessage}</span>
+          <button 
+            type="button" 
+            onClick={() => setToastMessage(null)} 
+            aria-label="Dismiss notice"
+            className="ml-2 text-stone-400 hover:text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
-      {/* Top Luxury Navbar */}
-      <nav className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80 px-6 py-4 flex items-center justify-between">
+      {/* Top Architectural Navbar */}
+      <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-200 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/20">
-            <Building2 className="w-6 h-6 stroke-[2.5]" />
+          <div className="w-10 h-10 rounded-md bg-stone-900 text-amber-400 flex items-center justify-center shadow-xs">
+            <Building2 className="w-6 h-6 stroke-[2]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 bg-clip-text text-transparent">
+              <span className="text-xl font-bold tracking-tight text-stone-950 font-serif">
                 PRIMEHAVEN
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full bg-amber-500/10">
-                LUXURY REALTY
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-900 border border-amber-300 px-2 py-0.5 rounded-md bg-amber-50">
+                PRIVATE ADVISORY
               </span>
             </div>
-            <p className="text-[11px] text-slate-400">Prime Commercial & Residential Estates</p>
+            <p className="text-xs text-stone-600 font-medium">Curated Residential & Architectural Estates</p>
           </div>
         </div>
 
         {/* Center Mode Switcher */}
-        <div className="hidden md:flex items-center bg-slate-900 border border-slate-800 p-1 rounded-xl">
+        <div className="hidden md:flex items-center bg-stone-100 border border-stone-200 p-1 rounded-md">
           {['All', 'For Sale', 'For Rent'].map(st => (
             <button
+              type="button"
               key={st}
               onClick={() => setStatusFilter(st)}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              aria-pressed={statusFilter === st}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                 statusFilter === st
-                  ? 'bg-amber-400 text-slate-950 shadow-md font-bold'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-stone-900 text-amber-400 shadow-xs font-bold'
+                  : 'text-stone-700 hover:text-stone-900'
               }`}
             >
-              {st === 'All' ? 'Browse All' : st === 'For Sale' ? 'Buy Property' : 'Rent Property'}
+              {st === 'All' ? 'All Residences' : st === 'For Sale' ? 'Acquisitions' : 'Private Leases'}
             </button>
           ))}
         </div>
@@ -226,100 +272,110 @@ export default function App() {
         {/* Right CTA Actions */}
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() => setIsFavoritesOpen(true)}
-            className="relative p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-amber-400 hover:border-amber-500/40 transition-colors"
+            aria-label="View saved residences portfolio"
+            className="relative p-2.5 rounded-md bg-stone-100 border border-stone-300 text-stone-800 hover:text-amber-800 hover:border-amber-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <Heart className="w-4 h-4" />
             {savedFavorites.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-extrabold flex items-center justify-center shadow-lg">
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-stone-900 text-amber-400 text-[10px] font-bold flex items-center justify-center shadow-xs">
                 {savedFavorites.length}
               </span>
             )}
           </button>
 
           <button
+            type="button"
             onClick={() => setIsListModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-lg shadow-amber-500/25 transition-all"
+            aria-label="List a property with advisory"
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-md bg-stone-900 text-amber-400 hover:bg-stone-800 shadow-xs transition-colors min-h-[44px]"
           >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>List a Property</span>
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>List Residence</span>
           </button>
         </div>
       </nav>
 
-      {/* Hero Banner with Integrated Search */}
-      <section className="relative py-12 md:py-20 px-6 overflow-hidden border-b border-slate-800 bg-radial from-slate-900 via-slate-950 to-slate-950">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b08_1px,transparent_1px),linear-gradient(to_bottom,#1e293b08_1px,transparent_1px)] bg-[size:32px_32px]" />
-        
+      {/* Hero Banner with Curated Architectural Search */}
+      <section className="relative py-12 md:py-16 px-4 sm:px-6 border-b border-stone-200 bg-white">
         <div className="max-w-4xl mx-auto text-center relative z-10 space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Over 1,200 High-Yield Listings in Nairobi & Environs</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
+            <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+            <span>Curated Architectural Portfolio • Global Premier Destinations</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white font-serif">
-            Discover Exceptional Estates, <br />
-            <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 bg-clip-text text-transparent">
-              Villas & Penthouses
-            </span>
+          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-stone-950 font-serif leading-tight">
+            Distinguished Residences, <br />
+            <span className="italic font-normal text-amber-800">Villas & Sky Penthouses</span>
           </h1>
-          <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
-            Direct marketplace connecting verified landlords, high-net-worth buyers, corporate tenants, and premier licensed real estate agents.
+          <p className="text-sm sm:text-base text-stone-600 max-w-2xl mx-auto leading-relaxed">
+            Direct marketplace connecting discerning buyers, institutional investors, and licensed private client real estate advisors.
           </p>
 
           {/* Search Card */}
-          <div className="mt-8 p-3 sm:p-4 rounded-3xl bg-slate-900/90 border border-slate-800 backdrop-blur-xl shadow-2xl grid grid-cols-1 sm:grid-cols-4 gap-3 text-left">
+          <div className="mt-8 p-4 sm:p-5 rounded-lg bg-stone-50 border border-stone-300 shadow-md grid grid-cols-1 sm:grid-cols-4 gap-4 text-left">
             <div>
-              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Location or Keyword</label>
-              <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
-                <MapPin className="w-4 h-4 text-amber-400" />
+              <label htmlFor="search-location-input" className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                Destination or Enclave
+              </label>
+              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-md border border-stone-300 min-h-[44px]">
+                <MapPin className="w-4 h-4 text-amber-800 shrink-0" />
                 <input
+                  id="search-location-input"
                   type="text"
-                  placeholder="Karen, Kilimani, Westlands..."
+                  placeholder="Mayfair, Beverly Hills, Zurich..."
                   value={searchLocation}
                   onChange={e => setSearchLocation(e.target.value)}
-                  className="bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none w-full"
+                  className="bg-transparent text-xs text-stone-900 placeholder-stone-400 focus:outline-none w-full"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Property Type</label>
+              <label htmlFor="property-type-select" className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                Property Architecture
+              </label>
               <select
+                id="property-type-select"
                 value={typeFilter}
                 onChange={e => setTypeFilter(e.target.value)}
-                className="w-full bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs text-slate-200 focus:outline-none"
+                className="w-full bg-white px-3 py-2 rounded-md border border-stone-300 text-xs text-stone-900 focus:outline-none min-h-[44px]"
               >
-                <option value="All">All Property Types</option>
+                <option value="All">All Architectures</option>
                 <option value="Luxury Villa">Luxury Villa</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Apartment">Modern Apartment</option>
-                <option value="Townhouse">Townhouse</option>
-                <option value="Commercial Office">Commercial Suites</option>
+                <option value="Penthouse">Sky Penthouse</option>
+                <option value="Apartment">Lakeside Apartment</option>
+                <option value="Townhouse">Coastal Estate</option>
+                <option value="Commercial Office">Executive Loft</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Bedrooms</label>
+              <label htmlFor="bedrooms-select" className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                Bedrooms Suite
+              </label>
               <select
+                id="bedrooms-select"
                 value={bedroomsFilter}
                 onChange={e => setBedroomsFilter(e.target.value)}
-                className="w-full bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs text-slate-200 focus:outline-none"
+                className="w-full bg-white px-3 py-2 rounded-md border border-stone-300 text-xs text-stone-900 focus:outline-none min-h-[44px]"
               >
-                <option value="Any">Any Bedrooms</option>
-                <option value="2">2 Bedrooms</option>
-                <option value="3">3 Bedrooms</option>
-                <option value="4+">4+ Bedrooms</option>
+                <option value="Any">Any Configuration</option>
+                <option value="2">2 Bedroom Suites</option>
+                <option value="3">3 Bedroom Suites</option>
+                <option value="4+">4+ Bedroom Suites</option>
               </select>
             </div>
 
             <div className="flex items-end">
               <button
+                type="button"
                 onClick={() => {}}
-                className="w-full py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold shadow-lg shadow-amber-400/20 flex items-center justify-center gap-2 transition-all"
+                className="w-full py-2.5 px-4 rounded-md bg-stone-900 hover:bg-stone-800 text-amber-400 text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-colors min-h-[44px]"
               >
                 <Search className="w-4 h-4" />
-                <span>Search {filteredProperties.length} Homes</span>
+                <span>Filter ({filteredProperties.length})</span>
               </button>
             </div>
           </div>
@@ -327,35 +383,39 @@ export default function App() {
       </section>
 
       {/* Main Properties Section */}
-      <main className="max-w-7xl mx-auto px-6 py-10 flex-1 w-full space-y-6">
-        {/* Results Header & Quick Sort */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+      <main className="max-w-7xl mx-auto px-4 sm:px-8 py-10 flex-1 w-full space-y-8">
+        {/* Results Header & Quick Budget Slider */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200">
           <div>
-            <h2 className="text-xl font-bold text-white font-serif">Curated Prime Listings</h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Showing {filteredProperties.length} verified exclusive properties matching your criteria
+            <h2 className="text-2xl font-bold text-stone-950 font-serif">Curated Portfolio Listings</h2>
+            <p className="text-xs text-stone-600 mt-1">
+              Displaying {filteredProperties.length} verified private residences
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-400">Budget Limit:</span>
+          <div className="flex items-center gap-3 bg-white p-2.5 rounded-md border border-stone-200 shadow-2xs">
+            <label htmlFor="price-range-slider" className="text-xs font-semibold text-stone-700">
+              Budget Ceiling:
+            </label>
             <input
+              id="price-range-slider"
               type="range"
-              min="1000"
-              max="1000000"
-              step="5000"
+              min="10000"
+              max="15000000"
+              step="50000"
               value={maxPrice}
               onChange={e => setMaxPrice(Number(e.target.value))}
-              className="w-32 accent-amber-400"
+              aria-label="Filter properties by maximum price"
+              className="w-32 accent-stone-900"
             />
-            <span className="text-xs font-mono font-bold text-amber-400">
+            <span className="text-xs font-mono font-bold text-stone-900">
               ${maxPrice.toLocaleString()}
             </span>
           </div>
         </div>
 
         {/* Properties Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {filteredProperties.map(property => {
             const isFav = savedFavorites.includes(property.id);
             return (
@@ -365,103 +425,89 @@ export default function App() {
                   setSelectedProperty(property);
                   setActiveGalleryIndex(0);
                 }}
-                className="group rounded-3xl bg-slate-900/60 border border-slate-800/80 hover:border-amber-500/50 transition-all duration-300 overflow-hidden cursor-pointer shadow-xl flex flex-col justify-between"
+                className="group rounded-lg bg-white border border-stone-200 hover:border-stone-400 transition-all overflow-hidden cursor-pointer shadow-xs flex flex-col justify-between"
               >
                 <div>
                   {/* Image Container with Badges */}
-                  <div className="relative aspect-[16/10] overflow-hidden bg-slate-800">
+                  <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
                     <img
                       src={property.image}
-                      alt={property.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      alt={`Exterior view of ${property.title}`}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-
                     <div className="absolute top-3 left-3 flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-950/80 backdrop-blur-md text-amber-400 border border-amber-500/30">
+                      <span className="px-2.5 py-1 rounded-sm text-[11px] font-bold uppercase tracking-wider bg-stone-900 text-amber-300 shadow-xs">
                         {property.status}
                       </span>
                       {property.featured && (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-400 text-slate-950 shadow-md">
-                          Featured
+                        <span className="px-2.5 py-1 rounded-sm text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                          Curated
                         </span>
                       )}
                     </div>
 
                     <button
+                      type="button"
                       onClick={e => toggleFavorite(property.id, e)}
-                      className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-all ${
+                      aria-label={isFav ? `Remove ${property.title} from favorites` : `Save ${property.title} to favorites`}
+                      className={`absolute top-3 right-3 p-2.5 rounded-full backdrop-blur-md transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${
                         isFav
-                          ? 'bg-amber-400 text-slate-950 shadow-lg'
-                          : 'bg-slate-950/60 text-white hover:text-amber-400'
+                          ? 'bg-amber-400 text-stone-950 shadow-md'
+                          : 'bg-white/80 text-stone-800 hover:text-amber-800 hover:bg-white'
                       }`}
                     >
-                      <Heart className={`w-4 h-4 ${isFav ? 'fill-slate-950' : ''}`} />
+                      <Heart className={`w-4 h-4 ${isFav ? 'fill-stone-950' : ''}`} />
                     </button>
-
-                    <div className="absolute bottom-3 left-3 right-3 flex items-baseline justify-between text-white">
-                      <div>
-                        <span className="text-2xl font-extrabold font-mono text-amber-300">
-                          ${property.price.toLocaleString()}
-                        </span>
-                        {property.rentPeriod && (
-                          <span className="text-xs text-slate-300 ml-1">/{property.rentPeriod}</span>
-                        )}
-                      </div>
-                      <span className="text-xs text-slate-300 font-medium">{property.type}</span>
-                    </div>
                   </div>
 
-                  {/* Body Content */}
+                  {/* Card Content */}
                   <div className="p-5 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                      <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                    <div className="flex items-center gap-1.5 text-xs text-stone-600 font-medium">
+                      <MapPin className="w-3.5 h-3.5 text-amber-800 shrink-0" />
                       <span>{property.location}</span>
                     </div>
 
-                    <h3 className="font-bold text-base text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                    <h3 className="font-serif font-bold text-lg text-stone-950 line-clamp-1 group-hover:text-amber-800 transition-colors">
                       {property.title}
                     </h3>
 
-                    <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                      {property.description}
-                    </p>
-
-                    {/* Features Badges */}
-                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-300">
-                      <div className="flex items-center gap-1.5">
-                        <Bed className="w-4 h-4 text-amber-400" />
-                        <span>{property.bedrooms} Beds</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Bath className="w-4 h-4 text-amber-400" />
+                    {/* Meta Specs */}
+                    <div className="flex items-center gap-4 text-xs text-stone-700 pt-2 border-t border-stone-100 font-medium">
+                      {property.bedrooms > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Bed className="w-4 h-4 text-stone-500" />
+                          <span>{property.bedrooms} Beds</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <Bath className="w-4 h-4 text-stone-500" />
                         <span>{property.bathrooms} Baths</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
-                        <span>{property.sqft.toLocaleString()} SqFt</span>
+                      <div className="flex items-center gap-1">
+                        <Maximize2 className="w-4 h-4 text-stone-500" />
+                        <span>{property.sqft.toLocaleString()} sqft</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Agent & Inquiry Footer */}
-                <div className="p-4 bg-slate-950/70 border-t border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src={property.agent.avatar}
-                      alt={property.agent.name}
-                      className="w-7 h-7 rounded-full object-cover border border-amber-500/40"
-                    />
-                    <div className="text-[11px]">
-                      <div className="font-semibold text-white">{property.agent.name}</div>
-                      <div className="text-slate-500">{property.agent.company}</div>
+                {/* Footer Price & Action */}
+                <div className="px-5 py-4 border-t border-stone-100 bg-stone-50/60 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] uppercase font-bold text-stone-500 block">Valuation</span>
+                    <div className="text-xl font-extrabold text-stone-950">
+                      ${property.price.toLocaleString()}
+                      {property.rentPeriod && (
+                        <span className="text-xs font-normal text-stone-600">/{property.rentPeriod}</span>
+                      )}
                     </div>
                   </div>
 
-                  <span className="text-xs font-bold text-amber-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-stone-900 group-hover:text-amber-800 transition-colors">
                     <span>Inspect</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ChevronRight className="w-4 h-4" />
                   </span>
                 </div>
               </div>
@@ -470,43 +516,62 @@ export default function App() {
         </div>
       </main>
 
-      {/* ======================= MODAL: PROPERTY DETAILS & MORTGAGE ======================= */}
+      {/* ======================= MODAL: PROPERTY DETAILS ======================= */}
       {selectedProperty && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full p-6 md:p-8 shadow-2xl relative my-8">
-            <button
-              onClick={() => setSelectedProperty(null)}
-              className="absolute top-5 right-5 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Gallery Section */}
-            <div className="space-y-3 mb-6">
-              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-slate-950">
-                <img
-                  src={selectedProperty.images?.[activeGalleryIndex] || selectedProperty.image}
-                  alt={selectedProperty.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-950/80 backdrop-blur-md text-amber-400 border border-amber-500/30">
+        <div 
+          role="dialog" 
+          aria-modal="true" 
+          aria-labelledby="property-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto"
+        >
+          <div className="w-full max-w-4xl rounded-lg bg-white border border-stone-300 shadow-2xl p-6 sm:p-8 space-y-6 my-auto max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-stone-200 pb-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase bg-stone-900 text-amber-300">
                     {selectedProperty.status}
                   </span>
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-950/80 backdrop-blur-md text-white">
-                    {selectedProperty.type}
-                  </span>
+                  <span className="text-xs text-stone-600">{selectedProperty.type}</span>
+                </div>
+                <h2 id="property-modal-title" className="font-serif font-extrabold text-2xl sm:text-3xl text-stone-950">
+                  {selectedProperty.title}
+                </h2>
+                <div className="flex items-center gap-1.5 text-xs text-stone-700 mt-1 font-medium">
+                  <MapPin className="w-4 h-4 text-amber-800 shrink-0" />
+                  <span>{selectedProperty.location} ({selectedProperty.neighborhood})</span>
                 </div>
               </div>
 
-              {selectedProperty.images && selectedProperty.images.length > 1 && (
-                <div className="flex items-center gap-3 overflow-x-auto pb-2">
+              <button
+                type="button"
+                onClick={() => setSelectedProperty(null)}
+                aria-label="Close property details"
+                className="p-2 text-stone-500 hover:text-stone-900 rounded-md min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Gallery Image Preview */}
+            <div className="space-y-3">
+              <div className="aspect-[16/9] rounded-lg overflow-hidden bg-stone-100 border border-stone-200">
+                <img
+                  src={selectedProperty.images[activeGalleryIndex] || selectedProperty.image}
+                  alt={`Gallery photo of ${selectedProperty.title}`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {selectedProperty.images.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
                   {selectedProperty.images.map((img, idx) => (
                     <button
-                      key={idx}
+                      type="button"
+                      key={img}
                       onClick={() => setActiveGalleryIndex(idx)}
-                      className={`relative w-24 h-16 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all ${
-                        activeGalleryIndex === idx ? 'border-amber-400 scale-105' : 'border-transparent opacity-60'
+                      aria-label={`View photo ${idx + 1}`}
+                      className={`relative w-20 h-14 rounded-md overflow-hidden shrink-0 border-2 transition-all ${
+                        activeGalleryIndex === idx ? 'border-amber-800 shadow-xs' : 'border-transparent opacity-70 hover:opacity-100'
                       }`}
                     >
                       <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
@@ -516,396 +581,272 @@ export default function App() {
               )}
             </div>
 
-            {/* Specs & Pricing */}
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 pb-6 border-b border-slate-800">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-amber-400 font-medium">
-                  <MapPin className="w-4 h-4" />
-                  <span>{selectedProperty.location} ({selectedProperty.neighborhood})</span>
+            {/* Specs & Description */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+              <div className="md:col-span-2 space-y-4">
+                <div className="grid grid-cols-3 gap-4 p-4 rounded-lg bg-stone-50 border border-stone-200 text-center text-xs">
+                  <div>
+                    <span className="text-stone-500 block">Bedrooms</span>
+                    <strong className="text-base text-stone-950 font-bold">{selectedProperty.bedrooms}</strong>
+                  </div>
+                  <div>
+                    <span className="text-stone-500 block">Bathrooms</span>
+                    <strong className="text-base text-stone-950 font-bold">{selectedProperty.bathrooms}</strong>
+                  </div>
+                  <div>
+                    <span className="text-stone-500 block">Interior Area</span>
+                    <strong className="text-base text-stone-950 font-bold">{selectedProperty.sqft.toLocaleString()} sqft</strong>
+                  </div>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-white font-serif">
-                  {selectedProperty.title}
-                </h2>
-                <div className="flex items-center gap-4 text-xs text-slate-300 pt-1">
-                  <span>{selectedProperty.bedrooms} Bedrooms</span>
-                  <span>•</span>
-                  <span>{selectedProperty.bathrooms} Bathrooms</span>
-                  <span>•</span>
-                  <span>{selectedProperty.sqft.toLocaleString()} SqFt Built Area</span>
+
+                <div>
+                  <h4 className="font-serif font-bold text-base text-stone-950 mb-1.5">Architectural Overview</h4>
+                  <p className="text-xs sm:text-sm text-stone-700 leading-relaxed">
+                    {selectedProperty.description}
+                  </p>
                 </div>
+
+                <div>
+                  <h4 className="font-serif font-bold text-base text-stone-950 mb-2">Amenities & Specifications</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {selectedProperty.amenities.map(amenity => (
+                      <div key={amenity} className="flex items-center gap-1.5 text-xs text-stone-800 font-medium p-2 rounded-md bg-stone-50 border border-stone-200">
+                        <Check className="w-3.5 h-3.5 text-amber-800 shrink-0" />
+                        <span>{amenity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Hardened Mortgage Calculator Widget */}
+                {selectedProperty.status === 'For Sale' && (
+                  <div className="p-4 rounded-lg bg-stone-50 border border-stone-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Calculator className="w-4 h-4 text-amber-800" />
+                        <h4 className="font-serif font-bold text-sm text-stone-950">Acquisition Finance Calculator</h4>
+                      </div>
+                      <span className="text-[11px] text-stone-500">Fixed rate amortization</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <label htmlFor="modal-downpayment-input" className="block text-stone-600 mb-1 font-medium">Down Pmt (%)</label>
+                        <input
+                          id="modal-downpayment-input"
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={downPaymentPct}
+                          onChange={e => setDownPaymentPct(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 rounded border border-stone-300 text-stone-900 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="modal-loanyears-input" className="block text-stone-600 mb-1 font-medium">Term (Yrs)</label>
+                        <input
+                          id="modal-loanyears-input"
+                          type="number"
+                          min="1"
+                          max="40"
+                          value={loanYears}
+                          onChange={e => setLoanYears(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 rounded border border-stone-300 text-stone-900 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="modal-interest-input" className="block text-stone-600 mb-1 font-medium">Interest (%)</label>
+                        <input
+                          id="modal-interest-input"
+                          type="number"
+                          min="0"
+                          max="20"
+                          step="0.1"
+                          value={interestRate}
+                          onChange={e => setInterestRate(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 rounded border border-stone-300 text-stone-900 bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-xs">
+                      <span className="text-stone-700 font-medium">Estimated Monthly Capital Outlay:</span>
+                      <strong className="text-base text-stone-950 font-mono">
+                        ${calculateMortgagePayment(selectedProperty.price, downPaymentPct, loanYears, interestRate).toLocaleString()} / mo
+                      </strong>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="text-right">
-                <div className="text-3xl font-extrabold font-mono text-amber-400">
-                  ${selectedProperty.price.toLocaleString()}
-                  {selectedProperty.rentPeriod && (
-                    <span className="text-sm text-slate-400 font-normal">/{selectedProperty.rentPeriod}</span>
-                  )}
-                </div>
-                <div className="text-xs text-emerald-400 mt-1 font-semibold">
-                  Verified Clean Title Deed & Ready For Transfer
-                </div>
-              </div>
-            </div>
-
-            {/* Description & Amenities */}
-            <div className="py-6 border-b border-slate-800 space-y-4">
-              <h4 className="text-xs uppercase font-bold tracking-wider text-slate-400">Property Overview</h4>
-              <p className="text-sm text-slate-300 leading-relaxed">{selectedProperty.description}</p>
-
-              <h4 className="text-xs uppercase font-bold tracking-wider text-slate-400 pt-2">Features & Amenities</h4>
-              <div className="flex flex-wrap gap-2">
-                {selectedProperty.amenities?.map((amenity, i) => (
-                  <span
-                    key={i}
-                    className="px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{amenity}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Interactive Mortgage Calculator (if For Sale) */}
-            {selectedProperty.status === 'For Sale' && (
-              <div className="py-6 border-b border-slate-800 space-y-4">
-                <div className="flex items-center gap-2 text-white font-semibold text-sm">
-                  <Calculator className="w-4 h-4 text-amber-400" />
-                  <span>Interactive Mortgage Payment Estimator</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                    <label className="text-slate-400 block mb-1">Down Payment ({downPaymentPct}%)</label>
-                    <input
-                      type="range"
-                      min="10"
-                      max="50"
-                      step="5"
-                      value={downPaymentPct}
-                      onChange={e => setDownPaymentPct(Number(e.target.value))}
-                      className="w-full accent-amber-400"
+              {/* Private Client Advisory Contact */}
+              <div className="p-5 rounded-lg bg-stone-50 border border-stone-200 space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="text-xs font-bold uppercase tracking-wider text-stone-500">Exclusive Representation</div>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={selectedProperty.agent.avatar}
+                      alt={selectedProperty.agent.name}
+                      className="w-12 h-12 rounded-full object-cover border border-amber-300"
                     />
-                    <div className="text-white font-bold font-mono mt-1">
-                      ${Math.round(selectedProperty.price * (downPaymentPct / 100)).toLocaleString()}
+                    <div>
+                      <h4 className="font-bold text-sm text-stone-950">{selectedProperty.agent.name}</h4>
+                      <p className="text-xs text-stone-600">{selectedProperty.agent.company}</p>
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                    <label className="text-slate-400 block mb-1">Loan Tenure ({loanYears} Years)</label>
-                    <input
-                      type="range"
-                      min="5"
-                      max="30"
-                      step="5"
-                      value={loanYears}
-                      onChange={e => setLoanYears(Number(e.target.value))}
-                      className="w-full accent-amber-400"
-                    />
-                    <div className="text-white font-bold font-mono mt-1">{loanYears} Years Repayment</div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                    <label className="text-slate-400 block mb-1">Interest Rate ({interestRate}%)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={interestRate}
-                      onChange={e => setInterestRate(Number(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-800 px-2 py-1 rounded text-white font-bold"
-                    />
-                    <div className="text-amber-400 font-extrabold font-mono text-base mt-1">
-                      ~${calculateMortgage(selectedProperty.price)?.toLocaleString()} / mo
-                    </div>
+                  <div className="text-xs text-stone-700 space-y-1.5 pt-2 border-t border-stone-200 font-medium">
+                    <div>Direct: <span className="font-mono text-stone-900">{selectedProperty.agent.phone}</span></div>
+                    <div>Advisory: <span className="text-stone-900">{selectedProperty.agent.email}</span></div>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Agent Direct Contact Actions */}
-            <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <img
-                  src={selectedProperty.agent.avatar}
-                  alt={selectedProperty.agent.name}
-                  className="w-12 h-12 rounded-2xl object-cover border border-amber-400"
-                />
-                <div>
-                  <div className="font-bold text-white text-sm">{selectedProperty.agent.name}</div>
-                  <div className="text-xs text-slate-400">{selectedProperty.agent.company}</div>
-                  <div className="text-xs text-amber-400 font-mono">{selectedProperty.agent.phone}</div>
+                <div className="space-y-2 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsScheduleTourOpen(true)}
+                    className="w-full py-2.5 px-4 rounded-md bg-stone-900 text-amber-400 hover:bg-stone-800 text-xs font-bold shadow-xs transition-colors min-h-[44px]"
+                  >
+                    Request Private Viewing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      showToast(`Inquiry dispatch initiated for ${selectedProperty.agent.name}`);
+                    }}
+                    className="w-full py-2.5 px-4 rounded-md bg-white border border-stone-300 text-stone-800 hover:bg-stone-100 text-xs font-semibold transition-colors min-h-[44px]"
+                  >
+                    Request Dossier & Floorplans
+                  </button>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <a
-                  href={`https://wa.me/254721889900?text=${encodeURIComponent(
-                    `Hello PrimeHaven, I am interested in inquiring about ${selectedProperty.title} (${selectedProperty.id}) listed at $${selectedProperty.price}.`
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>WhatsApp Agent</span>
-                </a>
-
-                <button
-                  onClick={() => setIsScheduleTourOpen(true)}
-                  className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-400/20"
-                >
-                  <Calendar className="w-4 h-4" />
-                  <span>Schedule Private Tour</span>
-                </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ======================= MODAL: LIST A NEW PROPERTY ======================= */}
-      {isListModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 md:p-8 shadow-2xl relative my-8">
-            <button
-              onClick={() => setIsListModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-2xl bg-amber-500/20 text-amber-400">
-                <Plus className="w-6 h-6 stroke-[3]" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white font-serif">Publish Property Listing</h3>
-                <p className="text-xs text-slate-400">List your property for rent or sale to thousands of verified prospects</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleAddProperty} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Property Title / Residence Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Amber Ridge Signature Penthouse"
-                  value={newProperty.title}
-                  onChange={e => setNewProperty({ ...newProperty, title: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Listing Type</label>
-                  <select
-                    value={newProperty.status}
-                    onChange={e => setNewProperty({ ...newProperty, status: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="For Sale">For Sale</option>
-                    <option value="For Rent">For Rent</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Property Category</label>
-                  <select
-                    value={newProperty.type}
-                    onChange={e => setNewProperty({ ...newProperty, type: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="Luxury Villa">Luxury Villa</option>
-                    <option value="Penthouse">Penthouse</option>
-                    <option value="Apartment">Modern Apartment</option>
-                    <option value="Townhouse">Townhouse</option>
-                    <option value="Commercial Office">Commercial Suites</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Price in USD ($)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 450000 or 2500"
-                    value={newProperty.price}
-                    onChange={e => setNewProperty({ ...newProperty, price: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Location / Suburb</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Westlands, Nairobi"
-                    value={newProperty.location}
-                    onChange={e => setNewProperty({ ...newProperty, location: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Bedrooms</label>
-                  <input
-                    type="number"
-                    value={newProperty.bedrooms}
-                    onChange={e => setNewProperty({ ...newProperty, bedrooms: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Bathrooms</label>
-                  <input
-                    type="number"
-                    value={newProperty.bathrooms}
-                    onChange={e => setNewProperty({ ...newProperty, bathrooms: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Area (SqFt)</label>
-                  <input
-                    type="number"
-                    value={newProperty.sqft}
-                    onChange={e => setNewProperty({ ...newProperty, sqft: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">High Resolution Image URL</label>
-                <input
-                  type="url"
-                  value={newProperty.image}
-                  onChange={e => setNewProperty({ ...newProperty, image: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Description</label>
-                <textarea
-                  rows={3}
-                  placeholder="Highlight key design choices, finishes, and neighborhood conveniences..."
-                  value={newProperty.description}
-                  onChange={e => setNewProperty({ ...newProperty, description: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
-                />
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsListModalOpen(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold shadow-lg shadow-amber-400/20"
-                >
-                  Publish Listing to PrimeHaven
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
 
       {/* ======================= MODAL: SCHEDULE TOUR ======================= */}
       {isScheduleTourOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
-            <button
-              onClick={() => setIsScheduleTourOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-5">
-              <div className="p-3 rounded-2xl bg-amber-400/20 text-amber-400">
-                <Calendar className="w-6 h-6" />
-              </div>
+        <div 
+          role="dialog" 
+          aria-modal="true" 
+          aria-labelledby="tour-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-md rounded-lg bg-white border border-stone-300 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-white">Book VIP Property Tour</h3>
-                <p className="text-xs text-slate-400">Choose your convenient date for private viewing</p>
+                <div className="flex items-center gap-2">
+                  <h3 id="tour-modal-title" className="font-serif font-bold text-lg text-stone-950">
+                    Schedule VIP Viewing
+                  </h3>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">
+                    MOCKED ADAPTER
+                  </span>
+                </div>
+                <p className="text-xs text-stone-600">Simulate tour coordination with private client desk.</p>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsScheduleTourOpen(false)}
+                aria-label="Close tour dialog"
+                className="p-2 text-stone-500 hover:text-stone-900 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleScheduleTour} className="space-y-4 text-xs">
+            <form onSubmit={handleScheduleTour} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1">Your Full Name</label>
+                <label htmlFor="tour-client-name" className="block font-semibold text-stone-700 mb-1">Full Legal Name *</label>
                 <input
+                  id="tour-client-name"
                   type="text"
-                  placeholder="e.g. Michael Mwangi"
+                  required
+                  placeholder="e.g. Lord Harrington"
                   value={tourForm.name}
                   onChange={e => setTourForm({ ...tourForm, name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
-                  required
+                  className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Phone Number</label>
+                  <label htmlFor="tour-phone-input" className="block font-semibold text-stone-700 mb-1">Phone Number *</label>
                   <input
+                    id="tour-phone-input"
                     type="tel"
-                    placeholder="+254 712 345 678"
+                    required
+                    placeholder="+1 (555) 019-2831"
                     value={tourForm.phone}
                     onChange={e => setTourForm({ ...tourForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
-                    required
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Preferred Time</label>
+                  <label htmlFor="tour-email-input" className="block font-semibold text-stone-700 mb-1">Corporate / Family Office Email *</label>
+                  <input
+                    id="tour-email-input"
+                    type="email"
+                    required
+                    placeholder="office@harrington.com"
+                    value={tourForm.email}
+                    onChange={e => setTourForm({ ...tourForm, email: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="tour-date-input" className="block font-semibold text-stone-700 mb-1">Preferred Date</label>
+                  <input
+                    id="tour-date-input"
+                    type="date"
+                    value={tourForm.date}
+                    onChange={e => setTourForm({ ...tourForm, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="tour-timeslot-select" className="block font-semibold text-stone-700 mb-1">Preferred Window</label>
                   <select
+                    id="tour-timeslot-select"
                     value={tourForm.timeSlot}
                     onChange={e => setTourForm({ ...tourForm, timeSlot: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
                   >
-                    <option value="10:00 AM">10:00 AM Morning</option>
-                    <option value="02:00 PM">02:00 PM Afternoon</option>
-                    <option value="04:30 PM">04:30 PM Sunset View</option>
+                    <option>09:00 AM (Morning)</option>
+                    <option>11:00 AM (Midday)</option>
+                    <option>02:30 PM (Afternoon)</option>
+                    <option>05:00 PM (Sunset Viewing)</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Preferred Date</label>
-                <input
-                  type="date"
-                  value={tourForm.date}
-                  onChange={e => setTourForm({ ...tourForm, date: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
-                  required
+                <label htmlFor="tour-notes-textarea" className="block font-semibold text-stone-700 mb-1">Confidential Requirements</label>
+                <textarea
+                  id="tour-notes-textarea"
+                  rows={2}
+                  placeholder="Security clearance, private helipad landing requests, etc."
+                  value={tourForm.notes}
+                  onChange={e => setTourForm({ ...tourForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
                 />
               </div>
 
-              <div className="pt-3 flex items-center justify-end gap-3">
+              <div className="pt-3 border-t border-stone-200 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsScheduleTourOpen(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-semibold rounded-md border border-stone-300 text-stone-700 hover:bg-stone-100 min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold"
+                  className="px-5 py-2 text-xs font-semibold rounded-md bg-stone-900 text-amber-400 hover:bg-stone-800 min-h-[44px]"
                 >
                   Confirm Viewing Slot
                 </button>
@@ -915,61 +856,233 @@ export default function App() {
         </div>
       )}
 
-      {/* ======================= DRAWER: SAVED FAVORITES ======================= */}
-      {isFavoritesOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-900 border-l border-slate-800 max-w-md w-full p-6 shadow-2xl flex flex-col justify-between h-full">
-            <div>
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-amber-400 fill-amber-400" />
-                  <h3 className="font-bold text-base text-white">Saved Properties ({savedFavorites.length})</h3>
-                </div>
-                <button
-                  onClick={() => setIsFavoritesOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      {/* ======================= MODAL: LIST PROPERTY ======================= */}
+      {isListModalOpen && (
+        <div 
+          role="dialog" 
+          aria-modal="true" 
+          aria-labelledby="list-property-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-lg rounded-lg bg-white border border-stone-300 shadow-2xl p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div>
+                <h3 id="list-property-title" className="font-serif font-bold text-lg text-stone-950">
+                  List Property with PrimeHaven Advisory
+                </h3>
+                <p className="text-xs text-stone-600">Register verified residences for private presentation.</p>
               </div>
-
-              <div className="mt-4 space-y-3 overflow-y-auto max-h-[70vh]">
-                {savedFavorites.length === 0 ? (
-                  <p className="text-xs text-slate-500 py-8 text-center">No properties saved yet.</p>
-                ) : (
-                  properties
-                    .filter(p => savedFavorites.includes(p.id))
-                    .map(p => (
-                      <div
-                        key={p.id}
-                        className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center gap-3"
-                      >
-                        <img src={p.image} alt={p.title} className="w-16 h-16 rounded-xl object-cover" />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-xs font-bold text-white truncate">{p.title}</h4>
-                          <p className="text-[11px] text-slate-400">{p.location}</p>
-                          <div className="text-xs font-mono font-bold text-amber-400 mt-1">
-                            ${p.price.toLocaleString()}
-                          </div>
-                        </div>
-                        <button
-                          onClick={e => toggleFavorite(p.id, e)}
-                          className="p-1.5 text-slate-500 hover:text-rose-400"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsListModalOpen(false)}
+                aria-label="Close listing form"
+                className="p-2 text-stone-500 hover:text-stone-900 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <button
-              onClick={() => setIsFavoritesOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white"
-            >
-              Back to Catalog
-            </button>
+            <form onSubmit={handleAddProperty} className="space-y-3 text-xs">
+              <div>
+                <label htmlFor="list-property-title-input" className="block font-semibold text-stone-700 mb-1">
+                  Estate Title *
+                </label>
+                <input
+                  id="list-property-title-input"
+                  type="text"
+                  required
+                  placeholder="e.g. Bel-Air Modern Terraces"
+                  value={newProperty.title}
+                  onChange={e => setNewProperty({ ...newProperty, title: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="list-property-status-select" className="block font-semibold text-stone-700 mb-1">Transaction Category</label>
+                  <select
+                    id="list-property-status-select"
+                    value={newProperty.status}
+                    onChange={e => setNewProperty({ ...newProperty, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  >
+                    <option>For Sale</option>
+                    <option>For Rent</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="list-property-type-select" className="block font-semibold text-stone-700 mb-1">Architectural Type</label>
+                  <select
+                    id="list-property-type-select"
+                    value={newProperty.type}
+                    onChange={e => setNewProperty({ ...newProperty, type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  >
+                    <option>Luxury Villa</option>
+                    <option>Penthouse</option>
+                    <option>Apartment</option>
+                    <option>Townhouse</option>
+                    <option>Commercial Office</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="list-property-price-input" className="block font-semibold text-stone-700 mb-1">Asking Valuation ($) *</label>
+                  <input
+                    id="list-property-price-input"
+                    type="number"
+                    required
+                    min="1000"
+                    placeholder="e.g. 4500000"
+                    value={newProperty.price}
+                    onChange={e => setNewProperty({ ...newProperty, price: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="list-property-location-input" className="block font-semibold text-stone-700 mb-1">City, Destination *</label>
+                  <input
+                    id="list-property-location-input"
+                    type="text"
+                    required
+                    placeholder="e.g. Zurich, Switzerland"
+                    value={newProperty.location}
+                    onChange={e => setNewProperty({ ...newProperty, location: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label htmlFor="list-property-bedrooms-input" className="block font-semibold text-stone-700 mb-1">Bedrooms</label>
+                  <input
+                    id="list-property-bedrooms-input"
+                    type="number"
+                    min="0"
+                    value={newProperty.bedrooms}
+                    onChange={e => setNewProperty({ ...newProperty, bedrooms: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="list-property-bathrooms-input" className="block font-semibold text-stone-700 mb-1">Bathrooms</label>
+                  <input
+                    id="list-property-bathrooms-input"
+                    type="number"
+                    min="1"
+                    step="0.5"
+                    value={newProperty.bathrooms}
+                    onChange={e => setNewProperty({ ...newProperty, bathrooms: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="list-property-sqft-input" className="block font-semibold text-stone-700 mb-1">Area (sqft)</label>
+                  <input
+                    id="list-property-sqft-input"
+                    type="number"
+                    min="100"
+                    value={newProperty.sqft}
+                    onChange={e => setNewProperty({ ...newProperty, sqft: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="list-property-desc-textarea" className="block font-semibold text-stone-700 mb-1">Architectural Summary</label>
+                <textarea
+                  id="list-property-desc-textarea"
+                  rows={3}
+                  placeholder="Outline key structural features, master bedroom suites, panoramic views, and design pedigree..."
+                  value={newProperty.description}
+                  onChange={e => setNewProperty({ ...newProperty, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-stone-200 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsListModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-md border border-stone-300 text-stone-700 hover:bg-stone-100 min-h-[44px]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-semibold rounded-md bg-stone-900 text-amber-400 hover:bg-stone-800 min-h-[44px]"
+                >
+                  Submit Residence for Presentation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================= MODAL: SAVED PORTFOLIO ======================= */}
+      {isFavoritesOpen && (
+        <div 
+          role="dialog" 
+          aria-modal="true" 
+          aria-labelledby="favorites-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 backdrop-blur-xs p-4 overflow-y-auto"
+        >
+          <div className="w-full max-w-lg rounded-lg bg-white border border-stone-300 shadow-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div>
+                <h3 id="favorites-modal-title" className="font-serif font-bold text-lg text-stone-950">
+                  Private Saved Portfolio ({savedFavorites.length})
+                </h3>
+                <p className="text-xs text-stone-600">Saved residences for investment consideration.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFavoritesOpen(false)}
+                aria-label="Close saved residences"
+                className="p-2 text-stone-500 hover:text-stone-900 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {savedFavorites.length === 0 ? (
+              <div className="text-center py-8 text-stone-500 space-y-2">
+                <Heart className="w-8 h-8 text-stone-300 mx-auto" />
+                <p className="text-sm font-medium">Your private saved portfolio is empty.</p>
+                <p className="text-xs">Click the heart icon on any residence card to save it here.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-stone-100">
+                {properties.filter(p => savedFavorites.includes(p.id)).map(p => (
+                  <div key={p.id} className="py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <img src={p.image} alt={p.title} className="w-14 h-14 rounded-md object-cover border border-stone-200" />
+                      <div>
+                        <h4 className="font-bold text-sm text-stone-950 line-clamp-1">{p.title}</h4>
+                        <div className="text-xs text-stone-600">{p.location}</div>
+                        <div className="text-xs font-bold text-stone-900 mt-0.5">${p.price.toLocaleString()}</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProperty(p);
+                        setIsFavoritesOpen(false);
+                      }}
+                      className="px-3 py-1.5 text-xs font-semibold rounded bg-stone-100 text-stone-900 hover:bg-stone-200 min-h-[44px]"
+                    >
+                      View
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

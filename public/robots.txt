@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://primehaven-property-platform.vercel.app/sitemap.xml
